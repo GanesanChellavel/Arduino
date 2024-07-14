@@ -1,0 +1,68 @@
+#include <Wire.h>
+#include <RTClib.h>
+#include <EEPROM.h>
+
+RTC_DS3231 rtc;
+char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+
+const int ledPin = 13; // Change to the pin you have connected the LED to
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, LOW); // Ensure LED is off initially
+
+  if (!rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    while (1);
+  }
+
+  if (rtc.lostPower()) {
+    Serial.println("RTC lost power, let's set the time!");
+    // Comment out below line once the time is set
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  }
+
+  // Initialize EEPROM with size 512 bytes (ESP8266)
+  EEPROM.begin(512);
+}
+
+void loop() {
+  DateTime now = rtc.now();
+
+  // Adjust to IST (UTC+5:30)
+  now = now + TimeSpan(0, 21, 30, 0); // Add 5 hours and 30 minutes
+
+  Serial.print(now.year(), DEC);
+  Serial.print('/');
+  Serial.print(now.month(), DEC);
+  Serial.print('/');
+  Serial.print(now.day(), DEC);
+  Serial.print(" ");
+  Serial.print(now.hour(), DEC);
+  Serial.print(':');
+  Serial.print(now.minute(), DEC);
+  Serial.print(':');
+  Serial.print(now.second(), DEC);
+  Serial.print(" ");
+  Serial.print(daysOfTheWeek[now.dayOfTheWeek()]);
+  Serial.println();
+
+  // Example: Write current second to EEPROM at address 0
+  EEPROM.write(0, now.second());
+  EEPROM.commit(); // Ensure data is written to EEPROM
+
+  // Example: Read back the value from EEPROM
+  int storedSecond = EEPROM.read(0);
+  Serial.print("Stored Second: ");
+  Serial.println(storedSecond);
+
+  // Turn on the LED between 19:00:00 and 23:00:00
+  if (now.hour() >= 19 && now.hour() < 23) {
+    digitalWrite(ledPin, HIGH);
+  } else {
+    digitalWrite(ledPin, LOW);
+  }
+
+  delay(1000);
+}
